@@ -26,50 +26,44 @@ class PyConf():
 		
 	"""Get value of a config item given an identifier
 	
-	Identifier syntax: [file].[section].name
-	Example: user_db.user1.password
-	
 	Whether file or section are required depend on 
-	if section_matters or file_matters are set to True
+	if self.section_matters or self.file_matters are set to True
 	"""
-	def get_item(self, identifier):
-		idents = identifier.split('.')
-		
-		min_idents = 1
-		if self.section_matters: min_idents += 1
-		if self.file_matters: min_idents += 1
-		if not len(idents) >= min_idents:
-			raise IdentifierError(identifier, self.file_matters, self.section_matters)
-			
-		#Account for item names with a "." in the name
-		idents[min_idents-1:] = ['.'.join(idents[min_idents-1:])]
+	def get_item(self, item, section=None, file=None):
+		#Validate arguments
+		if type(section) is not str and self.section_matters:
+			raise TypeError('Expected type str for "section" got %s' % type(section))
+		if type(file) is not str and self.file_matters:
+			raise TypeError('Expected type str for "file" got %s' % type(file))
+		if type(item) is not str:
+			raise TypeError('Expected type str for "item" got %s' % type(item))
 		
 		try:
-			#See if first identifier is a file, make sure file is loaded
-			if self.file_matters:
-				if not self._item_tree.has_key(idents[0]): 
+			working_tree = self._item_tree
+		
+			#Validate file identifier, make sure file is loaded
+			if self.file_matters and file is not None:
+				if not working_tree.has_key(file): 
 					if not self.explicit_load:
-						self.load(idents[0])
+						self.load(file)
+						working_tree = working_tree[file]
 					else:
-						raise FileLoadError(idents[0], identifier)
-			
-			#See if second identifier is a section
-			if self.section_matters:
-				if self.file_matters:
-					if not self._item_tree[idents[0]].has_key(idents[1]):
-						raise SectionLoadError(idents[1], identifier)
+						raise FileLoadError(file)
 				else:
-					if not self._item_tree.has_key(idents[1]):
-						raise SectionLoadError(idents[1], identifier)
+					working_tree = working_tree[file]
+			
+			#Validate section identifier
+			if self.section_matters and section is not None:
+				if not working_tree.has_key(section):
+					raise SectionLoadError(section)
+				else:
+					working_tree = working_tree[section]
 			
 			#Attempt to grab the actual item
 			try:
-				item_tree_key = self._item_tree
-				for i in idents:
-					item_tree_key = item_tree_key[i]
-				return item_tree_key
+				return working_tree[item]
 			except KeyError:
-				raise ItemLoadError(idents[min_idents-1:], identifier)
+				raise ItemLoadError(item)
 	
 		#Check if value is in defaults before raising error
 		except (ItemLoadError, SectionLoadError, FileLoadError), orig_error:
@@ -78,7 +72,7 @@ class PyConf():
 			
 			default_item_tree_key = self.defaults
 			try:
-				for i in idents:
+				for i in filter(lambda x: x is not None, (file, section, item)):
 					default_item_tree_key = default_item_tree_key[i]
 				return default_item_tree_key
 			except KeyError:
@@ -88,7 +82,7 @@ class PyConf():
 	def get_items(self, file=None, section=None):
 		if not file and not section:
 			return None
-		if section is not None and type(file) is not str:
+		if file is not None and type(file) is not str:
 			raise TypeError('file must be of type str, got %s' % type(file))
 		if section is not None and type(section) is not str:
 			raise TypeError('section must be of type section, got %s' % type(section))
@@ -110,6 +104,13 @@ class PyConf():
 				pass
 			
 		return matched_items
+		
+	def load(self, file, silent=False):
+		try:
+			self._parse_file(open(file))
+		except IOError, ParsingError as e:
+			if not silent:
+				raise e
 	
 	section_regex = re.compile(
 		r'^'
@@ -197,34 +198,31 @@ class IdentifierError(ConfigError):
 """Thrown when trying to access a config item that can't be found"""
 class ItemLoadError(ConfigError):
 
-	def __init__(self, item, identifier):
-		ConfigError.__init__(self, 'Cannot load item "%s", given identifier "%s"' %
-							(item, identifier))
+	def __init__(self, item):
+		ConfigError.__init__(self, 'Cannot load item "%s"' %
+							(item))
 							
-		self.identifier = identifier
 		self.item = item
 
 """Thrown when trying to access a section that can't be found"""
 class SectionLoadError(ConfigError):
 
-	def __init__(self, section, identifier):
-		ConfigError.__init__(self, 'Cannot load section "%s", given identifier "%s"' %
-							(section, identifier))
+	def __init__(self, section):
+		ConfigError.__init__(self, 'Cannot load section "%s"' %
+							(section))
 							
-		self.identifier = identifier
 		self.section = section	
 
 """Thrown when trying to access a file that can't be found"""
 class FileLoadError(ConfigError):
 
-	def __init__(self, file, identifier):
-		ConfigError.__init__(self, 'Cannot load file "%s", given identifier "%s"' %
-							(file, identifier))
+	def __init__(self, file):
+		ConfigError.__init__(self, 'Cannot load file "%s"' %
+							(file))
 							
-		self.identifier = identifier
 		self.file = file
 
-"""Thrown when trying to access a file that can't be found"""
+"""Thrown when a line has a syntax error within a file"""
 class ParsingError(ConfigError):
 
 	def __init__(self, conf_file, line, line_num):
