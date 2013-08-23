@@ -105,11 +105,11 @@ class PyConf():
 			
 		return matched_items
 		
-	def load(self, file, silent=False):
+	def load(self, file, raise_errors=False):
 		try:
 			self._parse_file(open(file))
-		except IOError, ParsingError as e:
-			if not silent:
+		except (IOError, ParsingError), e:
+			if raise_errors:
 				raise e
 	
 	section_regex = re.compile(
@@ -146,8 +146,8 @@ class PyConf():
 		for line_num, line in enumerate(config_file):
 			line_num += 1 #Line 0 doesn't make sense
 		
-			#Comment found
-			if line.strip()[0] == '#':
+			#Comment found or whitespace line
+			if len(line.strip()) == 0 or line.strip()[0] == '#':
 				continue
 			
 			match = self.section_regex.match(line.strip())
