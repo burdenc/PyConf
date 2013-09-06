@@ -3,11 +3,12 @@ import copy, re
 class PyConf():
 	
 	
-	def __init__(self, defaults=None, files=[], section_matters=True, file_matters=False, explicit_load=True):
+	def __init__(self, defaults=None, files=[], section_matters=True, file_matters=False, explicit_load=True, silent_errors=True):
 		self.defaults = defaults
 		self.section_matters = section_matters
 		self.file_matters = file_matters
 		self.explicit_load = explicit_load
+		self.silent_errors = silent_errors
 		
 		self._item_tree = {}
 		
@@ -18,11 +19,11 @@ class PyConf():
 	
 	config_file can be the textual location of the file, or the file object itself.
 	
-	silent defaults to True, but if it's False any parsing/loading errors will be thrown.
-	It's preferable to silence loading errors, because if a require config file doesn't load
+	If silent is False any parsing/loading errors will be thrown.
+	It's preferable to silence loading errors, because if a required config file doesn't load
 	you should use your PyConf object's default values instead.
 	"""
-	def load(self, config_file, silent=True):
+	def load(self, config_file, silent=self.silent_errors):
 		try:
 			if type(config_file) == str:
 				with open(config_file) as f:
