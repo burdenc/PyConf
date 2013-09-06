@@ -238,7 +238,7 @@ class ParsingError(ConfigError):
 
 	def __init__(self, conf_file, line, line_num):
 		ConfigError.__init__(self, 'Error on line #%s in file "%s". Given line:\n%s' %
-							(line_num, conf_file, line))
+							(line_num, conf_file, line.strip()))
 							
 		self.conf_file = conf_file
 		self.line = line
