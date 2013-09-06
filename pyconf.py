@@ -29,12 +29,12 @@ class PyConf():
 	Whether file or section are required depend on 
 	if self.section_matters or self.file_matters are set to True
 	"""
-	def get_item(self, item, section=None, file=None):
+	def get_item(self, item, section=None, conf_file=None):
 		#Validate arguments
 		if type(section) is not str and self.section_matters:
 			raise TypeError('Expected type str for "section" got %s' % type(section))
-		if type(file) is not str and self.file_matters:
-			raise TypeError('Expected type str for "file" got %s' % type(file))
+		if type(conf_file) is not str and self.file_matters:
+			raise TypeError('Expected type str for "file" got %s' % type(conf_file))
 		if type(item) is not str:
 			raise TypeError('Expected type str for "item" got %s' % type(item))
 		
@@ -42,15 +42,15 @@ class PyConf():
 			working_tree = self._item_tree
 		
 			#Validate file identifier, make sure file is loaded
-			if self.file_matters and file is not None:
-				if not working_tree.has_key(file): 
+			if self.file_matters and conf_file is not None:
+				if not working_tree.has_key(conf_file): 
 					if not self.explicit_load:
-						self.load(file)
-						working_tree = working_tree[file]
+						self.load(conf_file)
+						working_tree = working_tree[conf_file]
 					else:
-						raise FileLoadError(file)
+						raise FileLoadError(conf_file)
 				else:
-					working_tree = working_tree[file]
+					working_tree = working_tree[conf_file]
 			
 			#Validate section identifier
 			if self.section_matters and section is not None:
@@ -72,18 +72,18 @@ class PyConf():
 			
 			default_item_tree_key = self.defaults
 			try:
-				for i in filter(lambda x: x is not None, (file, section, item)):
+				for i in filter(lambda x: x is not None, (conf_file, section, item)):
 					default_item_tree_key = default_item_tree_key[i]
 				return default_item_tree_key
 			except KeyError:
 				raise orig_error
 	
 	"""Get all items within a section/file"""
-	def get_items(self, file=None, section=None):
-		if not file and not section:
+	def get_items(self, conf_file=None, section=None):
+		if not conf_file and not section:
 			return None
-		if file is not None and type(file) is not str:
-			raise TypeError('file must be of type str, got %s' % type(file))
+		if conf_file is not None and type(conf_file) is not str:
+			raise TypeError('file must be of type str, got %s' % type(conf_file))
 		if section is not None and type(section) is not str:
 			raise TypeError('section must be of type section, got %s' % type(section))
 		
@@ -91,23 +91,29 @@ class PyConf():
 		
 		raise StandardError('Reimplement')
 		
-		if file and self.file_matters:
+		if conf_file and self.file_matters:
 			try:
-				matched_items = matched_items[file]
+				matched_file = matched_items[conf_file]
 			except KeyError:
 				pass
 		
 		if section and self.section_matters:
-			try:
-				matched_items = matched_items[section]
-			except KeyError:
-				pass
+				if matched_file:
+					matched_items = matched_items[section]
+				else:
+					search_list = matched_items
+					matched_items
+					for temp_file in matched_items:
+						try:
+							matched_items = temp_file[section]
+						except KeyError:
+							pass
 			
 		return matched_items
 		
-	def load(self, file, raise_errors=False):
+	def load(self, conf_file, raise_errors=False):
 		try:
-			self._parse_file(open(file))
+			self._parse_file(open(conf_file))
 		except (IOError, ParsingError), e:
 			if raise_errors:
 				raise e
@@ -140,10 +146,10 @@ class PyConf():
 		r'$'
 	)
 	
-	def _parse_file(self, config_file):
+	def _parse_file(self, conf_file):
 		found_items = {}
 		current_section = None
-		for line_num, line in enumerate(config_file):
+		for line_num, line in enumerate(conf_file):
 			line_num += 1 #Line 0 doesn't make sense
 		
 			#Comment found or whitespace line
@@ -163,17 +169,17 @@ class PyConf():
 			if match:
 				#Item is found outside of section
 				if self.section_matters and current_section is None:
-					raise ParsingError(config_file.name, line, line_num)
+					raise ParsingError(conf_file.name, line, line_num)
 					
 				if self.section_matters:
 					found_items[current_section][match.group('item_name')] = match.group('item_val')
 				else:
 					found_items[match.group('item_name')] = match.group('item_val')
 			else:
-				raise ParsingError(config_file.name, line, line_num)
+				raise ParsingError(conf_file.name, line, line_num)
 			
 		if self.file_matters:
-			self._item_tree[config_file.name] = found_items
+			self._item_tree[conf_file.name] = found_items
 		else:
 			self._item_tree.update(found_items)
 			
@@ -216,11 +222,11 @@ class SectionLoadError(ConfigError):
 """Thrown when trying to access a file that can't be found"""
 class FileLoadError(ConfigError):
 
-	def __init__(self, file):
+	def __init__(self, conf_file):
 		ConfigError.__init__(self, 'Cannot load file "%s"' %
-							(file))
+							(conf_file))
 							
-		self.file = file
+		self.conf_file = conf_file
 
 """Thrown when a line has a syntax error within a file"""
 class ParsingError(ConfigError):
