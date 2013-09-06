@@ -14,15 +14,27 @@ class PyConf():
 		for f in files:
 			self.load(f)
 	
-	def load(config_file):
-		if type(config_file) == str:
-			with open(config_file) as f:
+	"""Load your config file for reading and writing values
+	
+	config_file can be the textual location of the file, or the file object itself.
+	
+	silent defaults to True, but if it's False any parsing/loading errors will be thrown.
+	It's preferable to silence loading errors, because if a require config file doesn't load
+	you should use your PyConf object's default values instead.
+	"""
+	def load(self, config_file, silent=True):
+		try:
+			if type(config_file) == str:
+				with open(config_file) as f:
+					self._parse_file(f)
+			elif type(config_file) == file:
 				self._parse_file(f)
-		elif type(config_file) == file:
-			self._parse_file(f)
-		else:
-			raise TypeError('load function must be either a file name or file object, got %s' %
-							type(config_file))
+			else:
+				raise TypeError('load function must be either a file name or file object, got %s' %
+								type(config_file))
+		except (IOError, ParsingError), e:
+			if not silent:
+				raise e
 		
 	"""Get value of a config item given an identifier
 	
@@ -110,13 +122,6 @@ class PyConf():
 							pass
 			
 		return matched_items
-		
-	def load(self, conf_file, raise_errors=False):
-		try:
-			self._parse_file(open(conf_file))
-		except (IOError, ParsingError), e:
-			if raise_errors:
-				raise e
 	
 	section_regex = re.compile(
 		r'^'
