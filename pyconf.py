@@ -23,7 +23,10 @@ class PyConf():
 	It's preferable to silence loading errors, because if a required config file doesn't load
 	you should use your PyConf object's default values instead.
 	"""
-	def load(self, config_file, silent=self.silent_errors):
+	def load(self, config_file, silent=None):
+		if silent is None:
+			silent = self.silent_errors
+
 		try:
 			if type(config_file) == str:
 				with open(config_file) as f:
@@ -124,7 +127,7 @@ class PyConf():
 			
 		return matched_items
 	
-	section_regex = re.compile(
+	_section_regex = re.compile(
 		r'^'
 		r'[\s]*'						#Leading whitespace
 		
@@ -137,7 +140,7 @@ class PyConf():
 		r'$'
 	)
 	
-	item_regex = re.compile(
+	_item_regex = re.compile(
 		r'^'
 		r'[\s]*'						#Leading whitespace
 		
