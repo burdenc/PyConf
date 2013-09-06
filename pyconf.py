@@ -24,7 +24,7 @@ class PyConf():
 	you should use your PyConf object's default values instead.
 	"""
 	def load(self, config_file, silent=None):
-		if silent is None:
+		if type(silent) is not bool:
 			silent = self.silent_errors
 
 		try:
@@ -61,7 +61,7 @@ class PyConf():
 			if self.file_matters and conf_file is not None:
 				if not working_tree.has_key(conf_file): 
 					if not self.explicit_load:
-						self.load(conf_file)
+						self.load(conf_file, silent=False)
 						working_tree = working_tree[conf_file]
 					else:
 						raise FileLoadError(conf_file)
@@ -94,7 +94,8 @@ class PyConf():
 			except KeyError:
 				raise orig_error
 	
-	"""Get all items within a section/file"""
+	#TODO: Include defaults paramter
+	"""Get all items within a section or file combination"""
 	def get_items(self, conf_file=None, section=None):
 		if not conf_file and not section:
 			return None
@@ -165,7 +166,7 @@ class PyConf():
 			if len(line.strip()) == 0 or line.strip()[0] == '#':
 				continue
 			
-			match = self.section_regex.match(line.strip())
+			match = self._section_regex.match(line.strip())
 			#is section
 			if match:
 				if self.section_matters:
@@ -173,7 +174,7 @@ class PyConf():
 					found_items[current_section] = {}
 				continue
 			
-			match = self.item_regex.match(line.strip())
+			match = self._item_regex.match(line.strip())
 			#is item
 			if match:
 				#Item is found outside of section
