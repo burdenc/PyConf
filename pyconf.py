@@ -1,9 +1,53 @@
 import copy, re
 
 class PyConf():
+	"""Configuration file parser similar to the built in configparser.py"""
 	
-	
-	def __init__(self, defaults=None, files=[], section_matters=True, file_matters=False, explicit_load=True, silent_errors=True):
+	def __init__(self, defaults=None, files=[], section_matters=True,
+				 file_matters=False, explicit_load=True, silent_errors=True):
+		"""Inialize your PyConf object
+        
+        Args:
+            defaults (dict): Dictionary that PyConf will reference whenever
+            Default: None	 it can't find a certain config item. Should be
+                             setup depending on how your file_matters and
+                             section_matters arguments are passed. Example
+                             with both being True:
+                             {
+                                'file_name':
+                                {
+                                    'section_name':
+                                    {
+                                        'item_name':'item_value'
+                                    }
+                                }
+                            }
+            
+            files (list(str), list(file)): All the files you want PyConf to
+            Default: []                    auto-load upon initialization.
+                                           By default if it can't load a
+                                           file it will just skip it.
+            
+            section_matters (bool): Whether or not sections will be tracked
+            Default: True           when loading files or config items. If
+                                    they are tracked you must supply the
+                                    section name you wish to load your item
+                                    from everytime you call get_item().
+            
+            file_matters (bool): Same as section_matters but for the actual
+            Default: False       file that you parse from. (like "config.ini")
+                                 
+            explicit_load (bool): If False, PyConf will attempt to load files
+            Default: False        that haven't been loaded yet when calling
+                                  get_item(). It is potentially dangerous to
+                                  enable this feature, as you could be loading
+                                  arbitrary files upon each get_item() call.
+            
+            silent_errors (bool): Whether or not to ignore errors thrown when
+            Default: True         loading files. Having this set to True is
+                                  preferable as you can just fall back to your
+                                  set default values.
+		"""
 		self.defaults = defaults
 		self.section_matters = section_matters
 		self.file_matters = file_matters
@@ -15,15 +59,22 @@ class PyConf():
 		for f in files:
 			self.load(f)
 	
-	"""Load your config file for reading and writing values
-	
-	config_file can be the textual location of the file, or the file object itself.
-	
-	If silent is False any parsing/loading errors will be thrown.
-	It's preferable to silence loading errors, because if a required config file doesn't load
-	you should use your PyConf object's default values instead.
-	"""
 	def load(self, config_file, silent=None):
+		"""Load your config file for reading and writing values
+        
+        Args:
+            config_file (str, file): Config file you wish to parse and grab
+                                     values from.
+            
+            silent (bool): If silent is False parsing/loading errors will be
+                           thrown. It's preferable to set silent to True
+                           and rely on your default values in case of errors.
+                           Default: self.silent_errors
+        Raises:
+            TypeError: config_file is not file or str
+            IOError: Cannot load given file name
+            ParsingError: Given config file has invalid syntax
+		"""
 		if type(silent) is not bool:
 			silent = self.silent_errors
 
@@ -39,13 +90,35 @@ class PyConf():
 		except (IOError, ParsingError), e:
 			if not silent:
 				raise e
-		
-	"""Get value of a config item given an identifier
-	
-	Whether file or section are required depend on 
-	if self.section_matters or self.file_matters are set to True
-	"""
+
 	def get_item(self, item, section=None, conf_file=None):
+		"""Get value of a config item
+        
+        If the specified item, section, and config file match cannot be found,
+        the function will check the provided default values and return that
+        item value if found.
+        
+        Whether file or section are required depend on 
+        if self.section_matters or self.file_matters are set to True
+        
+        Args:
+            item (str): Name of the config file itme you wish to load
+            
+            section (str): Name of the section to search for the config item.
+            Default: None  Ignored if self.section_matters is False.
+            
+            conf_file (str): Name of the physical config file to search for the
+            Default: None    config item. Ignored if self.file_matters is False.
+                             
+        Returns:
+            A string of the value matched.
+
+        Raises:
+            FileLoadError: The class cannot find the provided config file
+            SectionLoadError: The class cannot find the provided section
+            ItemLoadError: The class cannot find the provided item name
+            TypeError: Any of the arguments provided are not type str
+		"""
 		#Validate arguments
 		if type(section) is not str and self.section_matters:
 			raise TypeError('Expected type str for "section" got %s' % type(section))
@@ -94,9 +167,38 @@ class PyConf():
 			except KeyError:
 				raise orig_error
 	
-	#TODO: Include defaults paramter
-	"""Get all items within a section or file combination"""
-	def get_items(self, conf_file=None, section=None):
+	#TODO: Include default values
+	def get_items(self, section=None, conf_file=None):
+		"""Get all items within a section or file combination
+
+        If both section and conf_file are None then the entire config item
+        tree will be return.
+        
+        Args:
+            section (str): Name of the section to search for.
+            Default: None  Ignored if self.section_matters is False.
+            
+            conf_file (str): Name of the physical config file to search for.
+            Default: None    config item. Ignored if self.file_matters is False.
+                             
+        Returns:
+            Dictionary of item values in a format such as:
+            {
+                'file_name':
+                {
+                    'section_name':
+                    {
+                        'item_name':'item_value'
+                    }
+                }
+            }
+
+        Raises:
+            FileLoadError: The class cannot find the provided config file
+            SectionLoadError: The class cannot find the provided section
+            ItemLoadError: The class cannot find the provided item name
+            TypeError: Any of the arguments provided are not type str
+		"""
 		if not conf_file and not section:
 			return None
 		if conf_file is not None and type(conf_file) is not str:
@@ -194,8 +296,8 @@ class PyConf():
 			self._item_tree.update(found_items)
 			
 
-"""Base Exception class"""
 class ConfigError(Exception):
+	"""Base Exception class"""
 	
 	def __init__(self, msg=''):
 		self.msg = msg
@@ -203,16 +305,16 @@ class ConfigError(Exception):
 	def __str__(self):
 		return self.msg
 
-"""Thrown when an identifier is not specific enough for given options"""
 class IdentifierError(ConfigError):
+	"""Thrown when an identifier is not specific enough for given options"""
 	
 	def __init__(self, identifier, file_matters, section_matters):
 		ConfigError.__init__(self,
 		'Invalid identfier "%s" given options file_matters=%s and section_matters=%s' %
 		(identifier, file_matters, section_matters))
-	
-"""Thrown when trying to access a config item that can't be found"""
+
 class ItemLoadError(ConfigError):
+	"""Thrown when trying to access a config item that can't be found"""
 
 	def __init__(self, item):
 		ConfigError.__init__(self, 'Cannot load item "%s"' %
@@ -220,8 +322,8 @@ class ItemLoadError(ConfigError):
 							
 		self.item = item
 
-"""Thrown when trying to access a section that can't be found"""
 class SectionLoadError(ConfigError):
+	"""Thrown when trying to access a section that can't be found"""
 
 	def __init__(self, section):
 		ConfigError.__init__(self, 'Cannot load section "%s"' %
@@ -229,17 +331,17 @@ class SectionLoadError(ConfigError):
 							
 		self.section = section	
 
-"""Thrown when trying to access a file that can't be found"""
 class FileLoadError(ConfigError):
-
+	"""Thrown when trying to access a file that can't be found"""
+	
 	def __init__(self, conf_file):
 		ConfigError.__init__(self, 'Cannot load file "%s"' %
 							(conf_file))
 							
 		self.conf_file = conf_file
 
-"""Thrown when a line has a syntax error within a file"""
 class ParsingError(ConfigError):
+	"""Thrown when a line has a syntax error within a file"""
 
 	def __init__(self, conf_file, line, line_num):
 		ConfigError.__init__(self, 'Error on line #%s in file "%s". Given line:\n%s' %
